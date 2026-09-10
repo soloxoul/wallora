@@ -45,37 +45,37 @@ const spaces = [
   {
     title: "Bedroom",
     description: "Create a calm and personal retreat.",
-    href: "/services/home-painting-decoration/bedroom",
+    href: "/services/interior-painting/bedroom",
   },
   {
     title: "Living Room",
     description: "Make your main space feel beautiful.",
-    href: "/services/home-painting-decoration/living-room",
+    href: "/services/interior-painting/living-room",
   },
   {
     title: "Study Room",
     description: "Build a focused and inspiring corner.",
-    href: "/services/home-painting-decoration/study-room",
+    href: "/services/interior-painting/study-room",
   },
   {
     title: "Kitchen",
     description: "Give your kitchen a fresh new look.",
-    href: "/services/home-painting-decoration/kitchen",
+    href: "/services/interior-painting/kitchen",
   },
   {
     title: "Dining Room",
     description: "A warmer atmosphere for every meal.",
-    href: "/services/home-painting-decoration/dining-room",
+    href: "/services/interior-painting/dining-room",
   },
   {
     title: "Balcony",
     description: "Turn your balcony into a relaxing space.",
-    href: "/services/home-painting-decoration/balcony",
+    href: "/services/interior-painting/balcony",
   },
   {
     title: "Bathroom",
     description: "Fresh, clean and modern wall finishes.",
-    href: "/services/home-painting-decoration/bathroom",
+    href: "/services/interior-painting/bathroom",
   },
   {
     title: "Wall Designs",
