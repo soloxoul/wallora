@@ -368,18 +368,55 @@ export default function SearchClient() {
                   {
                     title: "Bedroom",
                     slug:
-                      "/services/home-painting-decoration/bedroom",
+                      "/services/interior_painting/bedroom",
                   },
                   {
                     title: "Living Room",
                     slug:
-                      "/services/home-painting-decoration/living-room",
+                      "/services/interior_painting/living-room",
                   },
                   {
                     title: "Kitchen",
                     slug:
-                      "/services/home-painting-decoration/kitchen",
+                      "/services/interior_painting/kitchen",
                   },
+                   {
+                    title: "Study Room",
+                    slug:
+                      "/services/interior_painting/study-room",
+                  },
+
+                  {
+                    title: "Bathroom",
+                    slug:
+                      "/services/interior_painting/bathroom",
+                  },
+                   {
+                    title: "Balcony",
+                    slug:
+                      "/services/interior_painting/balcony",
+                  },
+                   {
+                    title: "Dining Room",
+                    slug:
+                      "/services/interior_painting/dining-room",
+                  },
+                  {
+                    title: "Bachelor Room",
+                    slug:
+                      "/services/interior_painting/bachelor-room",
+                  },
+               {
+                    title: "Kids Room",
+                    slug:
+                      "/services/interior_painting/kids-room",
+                  },
+                  {
+                    title: "Master Bedroom",
+                    slug:
+                      "/services/interior_painting/master-bedroom",
+                  },
+
                   {
                     title: "Wall Designs",
                     slug: "/services/wall-designs",
