@@ -6,7 +6,6 @@ import { useEffect, useState } from "react";
 
 import {
   serviceCategories,
-  defaultServices,
   type ServiceItem,
 } from "@/lib/services";
 
@@ -39,7 +38,7 @@ export default function ServiceCategoryPage({
   );
 
   const [services, setServices] =
-    useState<ServiceItem[]>(defaultServices);
+    useState<ServiceItem[]>([]);
 
   const [quantities, setQuantities] =
     useState<Record<string, number>>({});
@@ -441,7 +440,7 @@ export default function ServiceCategoryPage({
         children.length === 0 && (
           <div className="neu-surface p-10 text-center">
             <h2 className="heading-md">
-              Services coming soon
+              Coming Soon
             </h2>
 
             <p className="mt-3 text-[var(--muted)]">

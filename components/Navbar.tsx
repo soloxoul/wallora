@@ -296,7 +296,7 @@ export default function Navbar() {
                       setMobileOpen(false)
                     }
                   >
-                    Home Painting & Decoration
+                    Interior Painting
                   </MobileLink>
                 </div>
               )}

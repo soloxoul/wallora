@@ -42,7 +42,7 @@ export const serviceCategories: ServiceCategory[] = [
     title: "Bedroom",
     description:
       "Comfortable and beautiful bedroom painting and decoration solutions.",
-    parent: "home-painting-decoration",
+    parent: "interior-painting",
     image:
       "https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&w=1200&q=80",
   },
@@ -122,7 +122,7 @@ export const serviceCategories: ServiceCategory[] = [
     title: "Living Room",
     description:
       "Welcoming colors, feature walls and premium finishes for living rooms.",
-    parent: "home-painting-decoration",
+    parent: "interior-painting",
     image:
       "https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?auto=format&fit=crop&w=1200&q=80",
   },
@@ -132,7 +132,7 @@ export const serviceCategories: ServiceCategory[] = [
     title: "Study Room",
     description:
       "Calm and focused colors and wall designs for study spaces.",
-    parent: "home-painting-decoration",
+    parent: "interior-painting",
     image:
       "https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=1200&q=80",
   },
@@ -142,7 +142,7 @@ export const serviceCategories: ServiceCategory[] = [
     title: "Balcony",
     description:
       "Fresh and weather-conscious painting solutions for balconies.",
-    parent: "home-painting-decoration",
+    parent: "interior-painting",
     image:
       "https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?auto=format&fit=crop&w=1200&q=80",
   },
@@ -152,7 +152,7 @@ export const serviceCategories: ServiceCategory[] = [
     title: "Kitchen",
     description:
       "Clean, durable and stylish painting solutions for kitchens.",
-    parent: "home-painting-decoration",
+    parent: "interior-painting",
     image:
       "https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea?auto=format&fit=crop&w=1200&q=80",
   },
@@ -162,7 +162,7 @@ export const serviceCategories: ServiceCategory[] = [
     title: "Dining Room",
     description:
       "Warm and elegant colors for memorable dining spaces.",
-    parent: "home-painting-decoration",
+    parent: "interior-painting",
     image:
       "https://images.unsplash.com/photo-1618220179428-22790b461013?auto=format&fit=crop&w=1200&q=80",
   },
@@ -172,7 +172,7 @@ export const serviceCategories: ServiceCategory[] = [
     title: "Bathroom",
     description:
       "Fresh and moisture-conscious painting solutions for bathrooms.",
-    parent: "home-painting-decoration",
+    parent: "interior-painting",
     image:
       "https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?auto=format&fit=crop&w=1200&q=80",
   },
