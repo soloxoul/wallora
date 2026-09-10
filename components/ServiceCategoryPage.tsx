@@ -9,7 +9,7 @@ import {
   type ServiceItem,
 } from "@/lib/services";
 import { addToCart } from "@/lib/cart";
-import { getStoredServices } from "@/lib/service-storage";
+import { supabase } from "@/lib/supabase";
 
 type Props = {
   slug: string;
@@ -36,19 +36,57 @@ export default function ServiceCategoryPage({
     (item) => item.slug === slug
   );
 
-  const [services, setServices] = useState<ServiceItem[]>(
-    defaultServices
-  );
+  const [services, setServices] =
+    useState<ServiceItem[]>(defaultServices);
 
-  const [quantities, setQuantities] = useState<
-    Record<string, number>
-  >({});
+  const [quantities, setQuantities] =
+    useState<Record<string, number>>({});
 
   useEffect(() => {
-    setServices(getStoredServices());
+    const loadServices = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("wallora_services")
+          .select(
+            "id, title, description, price, unit, image, category, popular, popular_rank, active"
+          )
+          .eq("active", true);
+
+        if (error) {
+          console.error(
+            "Failed to load services:",
+            error
+          );
+          return;
+        }
+
+        const mappedServices: ServiceItem[] =
+          (data ?? []).map((item) => ({
+            id: item.id,
+            title: item.title,
+            description: item.description,
+            price: Number(item.price) || 0,
+            unit: item.unit,
+            image: item.image,
+            categorySlug: item.category,
+            popular: Boolean(item.popular),
+            rank:
+              item.popular_rank ?? undefined,
+          }));
+
+        setServices(mappedServices);
+      } catch (error) {
+        console.error(
+          "Failed to load services:",
+          error
+        );
+      }
+    };
+
+    loadServices();
 
     const refreshServices = () => {
-      setServices(getStoredServices());
+      loadServices();
     };
 
     window.addEventListener(
@@ -56,16 +94,9 @@ export default function ServiceCategoryPage({
       refreshServices
     );
 
-    window.addEventListener("storage", refreshServices);
-
     return () => {
       window.removeEventListener(
         "wallora-services-updated",
-        refreshServices
-      );
-
-      window.removeEventListener(
-        "storage",
         refreshServices
       );
     };
@@ -96,11 +127,13 @@ export default function ServiceCategoryPage({
 
   const categoryServices = services
     .filter(
-      (service) => service.categorySlug === slug
+      (service) =>
+        service.categorySlug === slug
     )
     .sort(
       (a, b) =>
-        (a.rank ?? 999) - (b.rank ?? 999)
+        (a.rank ?? 999) -
+        (b.rank ?? 999)
     );
 
   const changeQuantity = (
@@ -239,7 +272,10 @@ export default function ServiceCategoryPage({
 
                     {service.popular && (
                       <div className="neu-surface-small absolute left-4 top-4 rounded-full px-4 py-2 text-xs font-bold text-[var(--primary)]">
-                        Popular #{service.rank ?? ""}
+                        Popular
+                        {service.rank
+                          ? ` #${service.rank}`
+                          : ""}
                       </div>
                     )}
                   </div>

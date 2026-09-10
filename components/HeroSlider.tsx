@@ -11,9 +11,10 @@ import {
 
 import {
   defaultHeroSlides,
-  getSettings,
   type HeroSlide,
 } from "@/lib/admin";
+
+import { supabase } from "@/lib/supabase";
 
 export default function HeroSlider() {
   const [slides, setSlides] = useState<HeroSlide[]>(
@@ -24,35 +25,58 @@ export default function HeroSlider() {
   const [isPaused, setIsPaused] = useState(false);
 
   useEffect(() => {
-    const loadSettings = () => {
-      const settings = getSettings();
+  const loadSlides = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("wallora_hero_slides")
+        .select("*")
+        .order("sort_order", { ascending: true });
 
-      if (
-        Array.isArray(settings.heroSlides) &&
-        settings.heroSlides.length > 0
-      ) {
-        setSlides(settings.heroSlides);
+      if (error) {
+        console.error("Failed to load hero slides:", error);
+        return;
       }
-    };
 
-    loadSettings();
+      if (data && data.length > 0) {
+        const onlineSlides: HeroSlide[] = data.map(
+          (slide) => ({
+            id: slide.id,
+            image: slide.image,
+            eyebrow: slide.eyebrow,
+            title: slide.title,
+            description: slide.description,
+            primaryButtonText:
+              slide.primary_button_text,
+            primaryButtonLink:
+              slide.primary_button_link,
+            secondaryButtonText:
+              slide.secondary_button_text,
+            secondaryButtonLink:
+              slide.secondary_button_link,
+          })
+        );
 
-    window.addEventListener(
+        setSlides(onlineSlides);
+      }
+    } catch (err) {
+      console.error("Failed to load hero slides:", err);
+    }
+  };
+
+  loadSlides();
+
+  window.addEventListener(
+    "wallora-settings-updated",
+    loadSlides
+  );
+
+  return () => {
+    window.removeEventListener(
       "wallora-settings-updated",
-      loadSettings
+      loadSlides
     );
-
-    window.addEventListener("storage", loadSettings);
-
-    return () => {
-      window.removeEventListener(
-        "wallora-settings-updated",
-        loadSettings
-      );
-
-      window.removeEventListener("storage", loadSettings);
-    };
-  }, []);
+  };
+}, []);
 
   useEffect(() => {
     if (activeSlide >= slides.length) {

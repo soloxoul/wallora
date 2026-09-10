@@ -9,6 +9,7 @@ import {
   ShoppingBag,
   ChevronDown,
 } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 
 export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -16,19 +17,22 @@ export default function Navbar() {
   const [logo, setLogo] = useState("");
 
   useEffect(() => {
-    const loadLogo = () => {
+    const loadLogo = async () => {
       try {
-        const saved = localStorage.getItem("wallora_settings");
+        const { data, error } = await supabase
+          .from("wallora_settings")
+          .select("logo")
+          .limit(1)
+          .maybeSingle();
 
-        if (!saved) {
-          setLogo("");
+        if (error) {
+          console.error("Failed to load logo:", error);
           return;
         }
 
-        const settings = JSON.parse(saved);
-        setLogo(settings.logo || "");
-      } catch {
-        setLogo("");
+        setLogo(data?.logo || "");
+      } catch (err) {
+        console.error("Failed to load logo:", err);
       }
     };
 
@@ -39,15 +43,11 @@ export default function Navbar() {
       loadLogo
     );
 
-    window.addEventListener("storage", loadLogo);
-
     return () => {
       window.removeEventListener(
         "wallora-settings-updated",
         loadLogo
       );
-
-      window.removeEventListener("storage", loadLogo);
     };
   }, []);
 
@@ -56,42 +56,46 @@ export default function Navbar() {
       <nav className="neu-surface mx-auto max-w-6xl px-4 py-3 sm:px-6">
         <div className="flex min-h-[52px] items-center justify-between gap-4">
 
-         {/* ==================== LOGO ==================== */}
-<Link
-  href="/"
-  className="flex min-h-11 items-center gap-3 rounded-xl px-1"
-  onClick={(e) => {
-    setMobileOpen(false);
-    setServicesOpen(false);
+          {/* ==================== LOGO ==================== */}
 
-    if (window.location.pathname === "/") {
-      e.preventDefault();
-      window.scrollTo({
-        top: 0,
-        behavior: "smooth",
-      });
-    }
-  }}
->
-  <div className="flex items-center gap-3">
-    {logo ? (
-      <img
-        src={logo}
-        alt="Wallora logo"
-        className="h-11 w-auto max-w-[150px] object-contain"
-      />
-    ) : (
-      <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#687052] text-lg font-extrabold text-[#fffdf5] shadow-[3px_3px_7px_rgba(151,146,129,0.4),-3px_-3px_7px_rgba(255,252,242,0.65)]">
-        W
-      </span>
-    )}
+          <Link
+            href="/"
+            className="flex min-h-11 items-center gap-3 rounded-xl px-1"
+            onClick={(e) => {
+              setMobileOpen(false);
+              setServicesOpen(false);
 
-    <span className="font-display text-xl font-extrabold tracking-tight text-[#414637]">
-      Wallora
-    </span>
-  </div>
-</Link>
+              if (window.location.pathname === "/") {
+                e.preventDefault();
+
+                window.scrollTo({
+                  top: 0,
+                  behavior: "smooth",
+                });
+              }
+            }}
+          >
+            <div className="flex items-center gap-3">
+              {logo ? (
+                <img
+                  src={logo}
+                  alt="Wallora logo"
+                  className="h-11 w-auto max-w-[150px] object-contain"
+                />
+              ) : (
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#687052] text-lg font-extrabold text-[#fffdf5] shadow-[3px_3px_7px_rgba(151,146,129,0.4),-3px_-3px_7px_rgba(255,252,242,0.65)]">
+                  W
+                </span>
+              )}
+
+              <span className="font-display text-xl font-extrabold tracking-tight text-[#414637]">
+                Wallora
+              </span>
+            </div>
+          </Link>
+
           {/* ==================== DESKTOP NAV ==================== */}
+
           <div className="hidden items-center gap-1 lg:flex">
 
             <NavLink href="/">
@@ -99,6 +103,7 @@ export default function Navbar() {
             </NavLink>
 
             {/* Services Dropdown */}
+
             <div className="relative">
               <button
                 type="button"
@@ -164,6 +169,7 @@ export default function Navbar() {
             </NavLink>
 
             {/* Search */}
+
             <Link
               href="/search"
               className="neu-icon-button ml-2"
@@ -172,7 +178,17 @@ export default function Navbar() {
               <Search size={19} />
             </Link>
 
+            {/* Track Order */}
+
+            <Link
+              href="/order/track"
+              className="flex min-h-11 items-center rounded-xl px-4 text-sm font-bold capitalize text-[#414637] transition hover:bg-[#dfdacb]"
+            >
+              Track Order
+            </Link>
+
             {/* Order */}
+
             <Link
               href="/order"
               className="neu-button neu-button-primary ml-2"
@@ -183,6 +199,7 @@ export default function Navbar() {
           </div>
 
           {/* ==================== MOBILE CONTROLS ==================== */}
+
           <div className="flex items-center gap-2 lg:hidden">
 
             <Link
@@ -215,6 +232,7 @@ export default function Navbar() {
         </div>
 
         {/* ==================== MOBILE MENU ==================== */}
+
         {mobileOpen && (
           <div className="mt-4 border-t border-[#414637]/10 pt-4 lg:hidden">
             <div className="flex flex-col gap-2">
@@ -229,6 +247,7 @@ export default function Navbar() {
               </MobileLink>
 
               {/* Mobile Services */}
+
               <button
                 type="button"
                 onClick={() =>
@@ -300,7 +319,19 @@ export default function Navbar() {
                 About Us
               </MobileLink>
 
+              {/* Mobile Track Order */}
+
+              <MobileLink
+                href="/order/track"
+                onClick={() =>
+                  setMobileOpen(false)
+                }
+              >
+                Track Order
+              </MobileLink>
+
               {/* Mobile Order */}
+
               <Link
                 href="/order"
                 onClick={() =>

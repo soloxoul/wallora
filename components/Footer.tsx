@@ -10,9 +10,10 @@ import {
 
 import {
   defaultSettings,
-  getSettings,
   type WalloraSettings,
 } from "@/lib/admin";
+
+import { supabase } from "@/lib/supabase";
 
 export default function Footer() {
   const [mounted, setMounted] = useState(false);
@@ -21,30 +22,52 @@ export default function Footer() {
     useState<WalloraSettings>(defaultSettings);
 
   useEffect(() => {
-    setMounted(true);
+  setMounted(true);
 
-    const loadSettings = () => {
-      setSettings(getSettings());
-    };
+  const loadSettings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("wallora_settings")
+        .select("*")
+        .limit(1)
+        .maybeSingle();
 
-    loadSettings();
+      if (error) {
+        console.error("Failed to load footer settings:", error);
+        return;
+      }
 
-    window.addEventListener(
+      if (data) {
+        setSettings((current) => ({
+          ...current,
+          phone: data.phone ?? current.phone,
+          email: data.email ?? current.email,
+          facebook: data.facebook ?? current.facebook,
+          instagram: data.instagram ?? current.instagram,
+          linkedin: data.linkedin ?? current.linkedin,
+          aboutText: data.about_text ?? current.aboutText,
+          logo: data.logo ?? current.logo,
+        }));
+      }
+    } catch (err) {
+      console.error("Failed to load footer settings:", err);
+    }
+  };
+
+  loadSettings();
+
+  window.addEventListener(
+    "wallora-settings-updated",
+    loadSettings
+  );
+
+  return () => {
+    window.removeEventListener(
       "wallora-settings-updated",
       loadSettings
     );
-
-    window.addEventListener("storage", loadSettings);
-
-    return () => {
-      window.removeEventListener(
-        "wallora-settings-updated",
-        loadSettings
-      );
-
-      window.removeEventListener("storage", loadSettings);
-    };
-  }, []);
+  };
+}, []);
 
   const logo = mounted ? settings.logo : "";
   const phone = mounted ? settings.phone : defaultSettings.phone;
