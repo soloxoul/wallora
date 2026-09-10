@@ -29,7 +29,7 @@ export const serviceCategories: ServiceCategory[] = [
   },
 
   {
-    slug: "home-painting-decoration",
+    slug: "interior-painting",
     title: "Interior Painting",
     description:
       "Complete painting and decoration solutions for every important space in your home.",
