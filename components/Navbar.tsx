@@ -148,13 +148,13 @@ export default function Navbar() {
                   </Link>
 
                   <Link
-                    href="/services/home-painting-decoration"
+                    href="/services/interior-painting"
                     onClick={() =>
                       setServicesOpen(false)
                     }
                     className="block rounded-xl px-4 py-3 text-sm font-semibold text-[#777868] transition hover:bg-[#dfdacb] hover:text-[#414637]"
                   >
-                    Home Painting & Decoration
+                    Interior Painting
                   </Link>
                 </div>
               )}
@@ -291,7 +291,7 @@ export default function Navbar() {
                   </MobileLink>
 
                   <MobileLink
-                    href="/services/home-painting-decoration"
+                    href="/services/interior-painting"
                     onClick={() =>
                       setMobileOpen(false)
                     }
