@@ -9,19 +9,18 @@ import {
   Phone,
   User,
 } from "lucide-react";
-import { useState } from "react";
-import {
-  getCart,
-  clearCart,
-} from "@/lib/cart";
+import { useEffect, useState } from "react";
+import { getCart, clearCart, type CartItem } from "@/lib/cart";
+
+type ServiceMode = "fast" | "flexible";
 
 type Order = {
   id: string;
-  items: ReturnType<typeof getCart>;
+  items: CartItem[];
   total: number;
   advance: number;
   dueAfterWork: number;
-  serviceMode: "fast" | "flexible";
+  serviceMode: ServiceMode;
   serviceDate: string;
   preferredFrom: string;
   preferredTo: string;
@@ -37,107 +36,200 @@ type Order = {
   createdAt: string;
 };
 
+const ORDERS_STORAGE_KEY = "wallora_orders";
+
 export default function CustomerDetailsClient() {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
   const [mapsLink, setMapsLink] = useState("");
 
+  const [mode, setMode] = useState<ServiceMode>("fast");
+  const [total, setTotal] = useState(0);
+  const [advance, setAdvance] = useState(0);
+  const [serviceDate, setServiceDate] = useState("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+
   const [submitted, setSubmitted] = useState(false);
   const [orderId, setOrderId] = useState("");
-
-  const params =
-    typeof window !== "undefined"
-      ? new URLSearchParams(window.location.search)
-      : null;
-
-  const mode =
-    params?.get("mode") === "flexible"
-      ? "flexible"
-      : "fast";
-
-  const total = Number(params?.get("total") ?? 0);
-  const advance = Number(params?.get("advance") ?? 0);
-
-  const serviceDate = params?.get("serviceDate") ?? "";
-  const fromDate = params?.get("fromDate") ?? "";
-  const toDate = params?.get("toDate") ?? "";
+  const [error, setError] = useState("");
 
   const dueAfterWork = total - advance;
 
-  const submitOrder = (event: React.FormEvent) => {
+  /* Read booking information from URL */
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+
+    const selectedMode =
+      params.get("mode") === "flexible"
+        ? "flexible"
+        : "fast";
+
+    setMode(selectedMode);
+
+    setTotal(Number(params.get("total") ?? 0));
+    setAdvance(Number(params.get("advance") ?? 0));
+
+    setServiceDate(params.get("serviceDate") ?? "");
+    setFromDate(params.get("fromDate") ?? "");
+    setToDate(params.get("toDate") ?? "");
+  }, []);
+
+  const submitOrder = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setError("");
 
-    const cart = getCart();
+    try {
+      const cart = getCart();
 
-    if (cart.length === 0) {
-      return;
+      /* Make sure there are services */
+      if (!cart || cart.length === 0) {
+        setError(
+          "Your service cart is empty. Please select a service first."
+        );
+        return;
+      }
+
+      /* Make sure required information exists */
+      if (!name.trim()) {
+        setError("Please enter your full name.");
+        return;
+      }
+
+      if (!phone.trim()) {
+        setError("Please enter your phone number.");
+        return;
+      }
+
+      if (!address.trim()) {
+        setError("Please enter your service address.");
+        return;
+      }
+
+      /* Validate selected date */
+      if (mode === "fast" && !serviceDate) {
+        setError("Please select your exact service date.");
+        return;
+      }
+
+      if (
+        mode === "flexible" &&
+        (!fromDate || !toDate)
+      ) {
+        setError(
+          "Please select both preferred From and To dates."
+        );
+        return;
+      }
+
+      /* Validate date range */
+      if (
+        mode === "flexible" &&
+        fromDate &&
+        toDate &&
+        fromDate > toDate
+      ) {
+        setError(
+          "Preferred To date cannot be earlier than From date."
+        );
+        return;
+      }
+
+      /* Generate order ID */
+      const newOrderId =
+        "WAL-" + Date.now().toString().slice(-8);
+
+      const newOrder: Order = {
+        id: newOrderId,
+
+        items: cart,
+
+        total,
+
+        advance,
+
+        dueAfterWork,
+
+        serviceMode: mode,
+
+        serviceDate:
+          mode === "fast" ? serviceDate : "",
+
+        preferredFrom:
+          mode === "flexible" ? fromDate : "",
+
+        preferredTo:
+          mode === "flexible" ? toDate : "",
+
+        assignedServiceDate: "",
+
+        customer: {
+          name: name.trim(),
+          phone: phone.trim(),
+          address: address.trim(),
+          mapsLink: mapsLink.trim(),
+        },
+
+        paymentStatus:
+          mode === "fast"
+            ? "advance_pending"
+            : "not_required",
+
+        status: "pending",
+
+        createdAt: new Date().toISOString(),
+      };
+
+      /* Safely read existing orders */
+      let existingOrders: Order[] = [];
+
+      try {
+        const storedOrders =
+          localStorage.getItem(ORDERS_STORAGE_KEY);
+
+        if (storedOrders) {
+          const parsed = JSON.parse(storedOrders);
+
+          if (Array.isArray(parsed)) {
+            existingOrders = parsed;
+          }
+        }
+      } catch {
+        existingOrders = [];
+      }
+
+      /* Save new order */
+      localStorage.setItem(
+        ORDERS_STORAGE_KEY,
+        JSON.stringify([
+          ...existingOrders,
+          newOrder,
+        ])
+      );
+
+      /* Clear cart */
+      clearCart();
+
+      /* Show confirmation */
+      setOrderId(newOrderId);
+      setSubmitted(true);
+    } catch (error) {
+      console.error("Wallora order submission error:", error);
+
+      setError(
+        "Something went wrong while submitting your request. Please try again."
+      );
     }
-
-    const newOrderId =
-      "WAL-" +
-      Date.now().toString().slice(-8);
-
-    const newOrder: Order = {
-      id: newOrderId,
-      items: cart,
-      total,
-      advance,
-      dueAfterWork,
-
-      serviceMode: mode,
-
-      serviceDate:
-        mode === "fast" ? serviceDate : "",
-
-      preferredFrom:
-        mode === "flexible" ? fromDate : "",
-
-      preferredTo:
-        mode === "flexible" ? toDate : "",
-
-      assignedServiceDate: "",
-
-      customer: {
-        name,
-        phone,
-        address,
-        mapsLink,
-      },
-
-      paymentStatus:
-        mode === "fast"
-          ? "advance_pending"
-          : "not_required",
-
-      status: "pending",
-
-      createdAt: new Date().toISOString(),
-    };
-
-    const existingOrders = JSON.parse(
-      localStorage.get("wallora_orders") || "[]"
-    );
-
-    localStorage.setItem(
-      "wallora_orders",
-      JSON.stringify([
-        ...existingOrders,
-        newOrder,
-      ])
-    );
-
-    clearCart();
-
-    setOrderId(newOrderId);
-    setSubmitted(true);
   };
 
+  /* Confirmation screen */
   if (submitted) {
     return (
       <section className="section-padding page-container">
         <div className="mx-auto max-w-2xl text-center">
           <div className="neu-surface p-8 md:p-12">
+
             <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full neu-inset">
               <CheckCircle2
                 size={42}
@@ -154,6 +246,7 @@ export default function CustomerDetailsClient() {
               request has been successfully submitted.
             </p>
 
+            {/* Order ID */}
             <div className="neu-inset mt-7 rounded-[24px] p-5">
               <p className="text-sm text-[var(--muted)]">
                 Order ID
@@ -164,8 +257,10 @@ export default function CustomerDetailsClient() {
               </p>
             </div>
 
-            <div className="mt-7 space-y-3 text-left">
-              <div className="flex justify-between">
+            {/* Order details */}
+            <div className="mt-7 space-y-4 text-left">
+
+              <div className="flex justify-between gap-5">
                 <span className="text-[var(--muted)]">
                   Service Type
                 </span>
@@ -177,7 +272,7 @@ export default function CustomerDetailsClient() {
                 </strong>
               </div>
 
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-5">
                 <span className="text-[var(--muted)]">
                   Total
                 </span>
@@ -187,7 +282,7 @@ export default function CustomerDetailsClient() {
                 </strong>
               </div>
 
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-5">
                 <span className="text-[var(--muted)]">
                   Advance
                 </span>
@@ -197,7 +292,7 @@ export default function CustomerDetailsClient() {
                 </strong>
               </div>
 
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-5">
                 <span className="text-[var(--muted)]">
                   After Work
                 </span>
@@ -208,7 +303,7 @@ export default function CustomerDetailsClient() {
               </div>
 
               {mode === "fast" && serviceDate && (
-                <div className="flex justify-between">
+                <div className="flex justify-between gap-5">
                   <span className="text-[var(--muted)]">
                     Requested Date
                   </span>
@@ -220,7 +315,7 @@ export default function CustomerDetailsClient() {
               {mode === "flexible" &&
                 fromDate &&
                 toDate && (
-                  <div className="flex justify-between">
+                  <div className="flex justify-between gap-5">
                     <span className="text-[var(--muted)]">
                       Preferred Range
                     </span>
@@ -245,15 +340,19 @@ export default function CustomerDetailsClient() {
               Explore More Services
               <ArrowRight size={18} />
             </Link>
+
           </div>
         </div>
       </section>
     );
   }
 
+  /* Customer details form */
   return (
     <section className="section-padding page-container">
+
       <div className="mb-10">
+
         <Link
           href="/order"
           className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--muted)]"
@@ -270,25 +369,32 @@ export default function CustomerDetailsClient() {
           Enter your contact and location information so
           Wallora can arrange your service.
         </p>
+
       </div>
 
       <div className="grid gap-8 lg:grid-cols-[1.4fr_0.7fr]">
+
+        {/* Form */}
         <form
           onSubmit={submitOrder}
           className="neu-surface p-6 md:p-8"
         >
+
           <h2 className="heading-md">
             Your Information
           </h2>
 
           <div className="mt-7 space-y-6">
+
             {/* Name */}
             <div>
+
               <label className="mb-2 block text-sm font-bold">
                 Full Name
               </label>
 
               <div className="relative">
+
                 <User
                   size={18}
                   className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--muted)]"
@@ -304,16 +410,20 @@ export default function CustomerDetailsClient() {
                   placeholder="Enter your full name"
                   className="neu-input w-full pl-12"
                 />
+
               </div>
+
             </div>
 
             {/* Phone */}
             <div>
+
               <label className="mb-2 block text-sm font-bold">
                 Phone Number
               </label>
 
               <div className="relative">
+
                 <Phone
                   size={18}
                   className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--muted)]"
@@ -329,11 +439,14 @@ export default function CustomerDetailsClient() {
                   placeholder="01XXXXXXXXX"
                   className="neu-input w-full pl-12"
                 />
+
               </div>
+
             </div>
 
             {/* Address */}
             <div>
+
               <label className="mb-2 block text-sm font-bold">
                 Service Address
               </label>
@@ -347,15 +460,18 @@ export default function CustomerDetailsClient() {
                 placeholder="Enter the complete address where the service will be performed"
                 className="neu-textarea min-h-[130px] w-full"
               />
+
             </div>
 
-            {/* Maps */}
+            {/* Google Maps */}
             <div>
+
               <label className="mb-2 block text-sm font-bold">
                 Google Maps Location Link
               </label>
 
               <div className="relative">
+
                 <MapPin
                   size={18}
                   className="absolute left-4 top-4 text-[var(--muted)]"
@@ -370,14 +486,26 @@ export default function CustomerDetailsClient() {
                   placeholder="Paste your Google Maps link"
                   className="neu-input w-full pl-12"
                 />
+
               </div>
 
               <p className="mt-2 text-xs text-[var(--muted)]">
                 Optional, but recommended so our team can
                 easily find your location.
               </p>
+
             </div>
 
+            {/* Error */}
+            {error && (
+              <div className="neu-inset rounded-[18px] p-4">
+                <p className="text-sm font-semibold text-[var(--danger)]">
+                  {error}
+                </p>
+              </div>
+            )}
+
+            {/* Submit */}
             <button
               type="submit"
               className="neu-button neu-button-primary w-full"
@@ -385,17 +513,22 @@ export default function CustomerDetailsClient() {
               Confirm Service Request
               <ArrowRight size={18} />
             </button>
+
           </div>
+
         </form>
 
         {/* Summary */}
         <aside>
+
           <div className="neu-surface p-7 lg:sticky lg:top-28">
+
             <h2 className="heading-md">
               Booking Summary
             </h2>
 
             <div className="mt-6 space-y-5">
+
               <div>
                 <p className="text-sm text-[var(--muted)]">
                   Service Type
@@ -469,10 +602,15 @@ export default function CustomerDetailsClient() {
                   ৳{dueAfterWork.toLocaleString()}
                 </strong>
               </div>
+
             </div>
+
           </div>
+
         </aside>
+
       </div>
+
     </section>
   );
 }
