@@ -16,36 +16,71 @@ import {
   type ServiceItem,
 } from "@/lib/services";
 
-import { getStoredServices } from "@/lib/service-storage";
+import { supabase } from "@/lib/supabase";
 
 export default function SearchClient() {
   const [query, setQuery] = useState("");
   const [services, setServices] =
     useState<ServiceItem[]>(defaultServices);
 
-  useEffect(() => {
-    const loadServices = () => {
-      setServices(getStoredServices());
-    };
+ useEffect(() => {
+  const loadServices = async () => {
+    const { data, error } = await supabase
+      .from("wallora_services")
+      .select(
+        "id,title,description,price,unit,image,category,popular,popular_rank,active,sort_order"
+      )
+      .eq("active", true)
+      .order("sort_order", { ascending: true });
 
-    loadServices();
+    if (error) {
+      console.error("Search services load failed:", error);
+      return;
+    }
 
-    window.addEventListener(
-      "wallora-services-updated",
-      loadServices
+    const freshServices: ServiceItem[] = (data ?? []).map(
+      (item) => ({
+        id: item.id,
+        title: item.title,
+        description: item.description ?? "",
+        price: Number(item.price ?? 0),
+        unit: item.unit ?? "per service",
+        image: item.image ?? "",
+        categorySlug: item.category ?? "",
+        popular: Boolean(item.popular),
+        rank:
+          item.popular_rank !== null &&
+          item.popular_rank !== undefined
+            ? Number(item.popular_rank)
+            : undefined,
+      })
     );
 
-    window.addEventListener("storage", loadServices);
+    setServices(freshServices);
+  };
 
-    return () => {
-      window.removeEventListener(
-        "wallora-services-updated",
-        loadServices
-      );
+  loadServices();
 
-      window.removeEventListener("storage", loadServices);
-    };
-  }, []);
+  const handleServicesUpdated = () => {
+    loadServices();
+  };
+
+  window.addEventListener(
+    "wallora-services-updated",
+    handleServicesUpdated
+  );
+
+  window.addEventListener("focus", handleServicesUpdated);
+
+  return () => {
+    window.removeEventListener(
+      "wallora-services-updated",
+      handleServicesUpdated
+    );
+
+    window.removeEventListener("focus", handleServicesUpdated);
+  };
+}, []);
 
   const popularServices = useMemo(() => {
     return services
@@ -88,6 +123,13 @@ export default function SearchClient() {
     "Wall Design",
     "Kitchen",
     "Bathroom",
+    "Balcony",
+    "Dining Room",
+    "Study Room",
+    "Bachelor Room",
+    "Kids Room",
+    "Master Bedroom",
+    
   ];
 
   return (

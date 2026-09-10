@@ -3,11 +3,13 @@
 import Link from "next/link";
 import { ArrowRight, Minus, Plus, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
+
 import {
   serviceCategories,
   defaultServices,
   type ServiceItem,
 } from "@/lib/services";
+
 import { addToCart } from "@/lib/cart";
 import { supabase } from "@/lib/supabase";
 
@@ -42,6 +44,11 @@ export default function ServiceCategoryPage({
   const [quantities, setQuantities] =
     useState<Record<string, number>>({});
 
+  const [categoryImages, setCategoryImages] =
+    useState<Record<string, string>>({});
+
+  /* ================= SERVICES ================= */
+
   useEffect(() => {
     const loadServices = async () => {
       try {
@@ -64,14 +71,17 @@ export default function ServiceCategoryPage({
           (data ?? []).map((item) => ({
             id: item.id,
             title: item.title,
-            description: item.description,
+            description: item.description ?? "",
             price: Number(item.price) || 0,
-            unit: item.unit,
-            image: item.image,
-            categorySlug: item.category,
+            unit: item.unit ?? "per service",
+            image: item.image ?? "",
+            categorySlug: item.category ?? "",
             popular: Boolean(item.popular),
             rank:
-              item.popular_rank ?? undefined,
+              item.popular_rank !== null &&
+              item.popular_rank !== undefined
+                ? Number(item.popular_rank)
+                : undefined,
           }));
 
         setServices(mappedServices);
@@ -102,6 +112,62 @@ export default function ServiceCategoryPage({
     };
   }, []);
 
+  /* ================= CATEGORY IMAGES ================= */
+
+  useEffect(() => {
+    const loadCategoryImages = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("wallora_service_categories")
+          .select("id, image")
+          .eq("active", true);
+
+        if (error) {
+          console.error(
+            "Failed to load category images:",
+            error
+          );
+          return;
+        }
+
+        const imageMap: Record<string, string> = {};
+
+        (data ?? []).forEach((item) => {
+          if (item.image) {
+            imageMap[item.id] = item.image;
+          }
+        });
+
+        setCategoryImages(imageMap);
+      } catch (error) {
+        console.error(
+          "Failed to load category images:",
+          error
+        );
+      }
+    };
+
+    loadCategoryImages();
+
+    const refreshCategoryImages = () => {
+      loadCategoryImages();
+    };
+
+    window.addEventListener(
+      "wallora-category-images-updated",
+      refreshCategoryImages
+    );
+
+    return () => {
+      window.removeEventListener(
+        "wallora-category-images-updated",
+        refreshCategoryImages
+      );
+    };
+  }, []);
+
+  /* ================= CATEGORY CHECK ================= */
+
   if (!category) {
     return (
       <section className="section-padding page-container">
@@ -121,9 +187,13 @@ export default function ServiceCategoryPage({
     );
   }
 
+  /* ================= CHILD CATEGORIES ================= */
+
   const children = serviceCategories.filter(
     (item) => item.parent === slug
   );
+
+  /* ================= CATEGORY SERVICES ================= */
 
   const categoryServices = services
     .filter(
@@ -135,6 +205,8 @@ export default function ServiceCategoryPage({
         (a.rank ?? 999) -
         (b.rank ?? 999)
     );
+
+  /* ================= QUANTITY ================= */
 
   const changeQuantity = (
     serviceId: string,
@@ -148,6 +220,8 @@ export default function ServiceCategoryPage({
       ),
     }));
   };
+
+  /* ================= REQUEST SERVICE ================= */
 
   const requestService = (
     service: ServiceItem
@@ -197,6 +271,8 @@ export default function ServiceCategoryPage({
         </p>
       </div>
 
+      {/* ================= CHILD CATEGORIES ================= */}
+
       {children.length > 0 && (
         <div className="mb-14">
           <h2 className="heading-lg mb-6">
@@ -212,7 +288,10 @@ export default function ServiceCategoryPage({
               >
                 <div className="aspect-[16/10] overflow-hidden rounded-[24px]">
                   <img
-                    src={child.image}
+                    src={
+                      categoryImages[child.slug] ||
+                      child.image
+                    }
                     alt={child.title}
                     className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                   />
@@ -239,6 +318,8 @@ export default function ServiceCategoryPage({
           </div>
         </div>
       )}
+
+      {/* ================= SERVICES ================= */}
 
       {categoryServices.length > 0 && (
         <div>
@@ -353,6 +434,8 @@ export default function ServiceCategoryPage({
           </div>
         </div>
       )}
+
+      {/* ================= EMPTY STATE ================= */}
 
       {categoryServices.length === 0 &&
         children.length === 0 && (

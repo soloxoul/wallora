@@ -1,11 +1,61 @@
+"use client";
+
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+import { useEffect, useState } from "react";
 import { serviceCategories } from "@/lib/services";
+import { supabase } from "@/lib/supabase";
 
 export default function ServicesPage() {
   const mainCategories = serviceCategories.filter(
     (category) => !category.parent
   );
+
+  const [categoryImages, setCategoryImages] = useState<
+    Record<string, string>
+  >({});
+
+  useEffect(() => {
+    const loadCategoryImages = async () => {
+      const { data, error } = await supabase
+        .from("wallora_service_categories")
+        .select("id, image")
+        .eq("active", true);
+
+      if (error) {
+        console.error("Category images load failed:", error);
+        return;
+      }
+
+      const imageMap: Record<string, string> = {};
+
+      (data ?? []).forEach((item) => {
+        if (item.image) {
+          imageMap[item.id] = item.image;
+        }
+      });
+
+      setCategoryImages(imageMap);
+    };
+
+    loadCategoryImages();
+
+    const handleCategoryImageUpdate = () => {
+      loadCategoryImages();
+    };
+
+    window.addEventListener(
+      "wallora-category-images-updated",
+      handleCategoryImageUpdate
+    );
+
+    return () => {
+      window.removeEventListener(
+        "wallora-category-images-updated",
+        handleCategoryImageUpdate
+      );
+    };
+  }, []);
 
   return (
     <section className="section-padding page-container">
@@ -31,7 +81,10 @@ export default function ServicesPage() {
           >
             <div className="overflow-hidden rounded-[26px]">
               <img
-                src={category.image}
+                src={
+                  categoryImages[category.slug] ||
+                  category.image
+                }
                 alt={category.title}
                 className="h-72 w-full object-cover transition-transform duration-500 group-hover:scale-105"
               />
