@@ -7,6 +7,11 @@ export const metadata: Metadata = {
   title: "Wallora | Transform Your Walls",
   description:
     "Wallora creates beautiful, personalized spaces through modern painting and wall decoration services.",
+  icons: {
+    icon: "/icon.png",
+    shortcut: "/icon.png",
+    apple: "/icon.png",
+  },
 };
 
 export default function RootLayout({
