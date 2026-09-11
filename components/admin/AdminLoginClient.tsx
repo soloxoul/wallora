@@ -3,27 +3,50 @@
 import { FormEvent, useState } from "react";
 import { LockKeyhole, ArrowRight } from "lucide-react";
 import { useRouter } from "next/navigation";
-import {
-  loginAdmin,
-} from "@/lib/admin";
+import { supabase } from "@/lib/supabase";
+import { ADMIN_AUTH_KEY } from "@/lib/admin";
 
 export default function AdminLoginClient() {
   const router = useRouter();
 
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = (event: FormEvent) => {
+  const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     setError("");
+    setLoading(true);
 
-    if (!loginAdmin(password)) {
-      setError("Incorrect admin password.");
-      return;
+    try {
+      const { data, error: verifyError } = await supabase.rpc(
+        "verify_wallora_admin_password",
+        {
+          input_password: password,
+        }
+      );
+
+      if (verifyError) {
+        console.error("Admin login error:", verifyError);
+        setError("Unable to verify password. Please try again.");
+        return;
+      }
+
+      if (!data) {
+        setError("Incorrect admin password.");
+        return;
+      }
+
+      localStorage.setItem(ADMIN_AUTH_KEY, "true");
+
+      router.push("/admin");
+    } catch (err) {
+      console.error("Admin login error:", err);
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
     }
-
-    router.push("/admin");
   };
 
   return (
@@ -60,11 +83,10 @@ export default function AdminLoginClient() {
               required
               type="password"
               value={password}
-              onChange={(event) =>
-                setPassword(event.target.value)
-              }
+              onChange={(event) => setPassword(event.target.value)}
               placeholder="Enter password"
               className="neu-input w-full"
+              disabled={loading}
             />
 
             {error && (
@@ -75,14 +97,13 @@ export default function AdminLoginClient() {
 
             <button
               type="submit"
-              className="neu-button neu-button-primary mt-6 w-full"
+              disabled={loading}
+              className="neu-button neu-button-primary mt-6 w-full disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Sign In
-              <ArrowRight size={18} />
+              {loading ? "Signing In..." : "Sign In"}
+              {!loading && <ArrowRight size={18} />}
             </button>
           </form>
-
-          
         </div>
       </div>
     </section>

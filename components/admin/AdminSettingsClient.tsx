@@ -4,11 +4,11 @@ import { useEffect, useState } from "react";
 import {
   defaultSettings,
   getSettings,
-  setAdminPassword,
   type WalloraSettings,
   type HeroSlide,
 } from "@/lib/admin";
 import { supabase } from "@/lib/supabase";
+
 
 export default function AdminSettingsClient() {
   const [settings, setSettings] =
@@ -371,13 +371,34 @@ export default function AdminSettingsClient() {
       }
 
       // --------------------------------
-      // 5. Password remains local
-      // --------------------------------
+// 5. Save new admin password online
+// --------------------------------
 
-      if (newPassword.trim()) {
-        setAdminPassword(newPassword.trim());
-        setNewPassword("");
+if (newPassword.trim()) {
+  const { data: passwordUpdated, error: passwordError } =
+    await supabase.rpc(
+      "update_wallora_admin_password",
+      {
+        new_password: newPassword.trim(),
       }
+    );
+
+  if (passwordError) {
+    console.error(passwordError);
+
+    throw new Error(
+      `Password update failed: ${passwordError.message}`
+    );
+  }
+
+  if (!passwordUpdated) {
+    throw new Error(
+      "Password must be at least 6 characters."
+    );
+  }
+
+  setNewPassword("");
+}
 
       // --------------------------------
       // 6. Notify website components
