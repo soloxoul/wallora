@@ -17,6 +17,7 @@ import {
 } from "@/lib/services";
 
 import { supabase } from "@/lib/supabase";
+import { getCategoryPath } from "@/components/ServiceCategoryPage";
 
 export default function SearchClient() {
   const [query, setQuery] = useState("");
@@ -368,59 +369,70 @@ export default function SearchClient() {
                   {
                     title: "Bedroom",
                     slug:
-                      "/services/interior_painting/bedroom",
+                      "/services/interior-painting/bedroom",
                   },
                   {
                     title: "Living Room",
                     slug:
-                      "/services/interior_painting/living-room",
+                      "/services/interior-painting/living-room",
                   },
                   {
                     title: "Kitchen",
                     slug:
-                      "/services/interior_painting/kitchen",
+                      "/services/interior-painting/kitchen",
                   },
                    {
                     title: "Study Room",
                     slug:
-                      "/services/interior_painting/study-room",
+                      "/services/interior-painting/study-room",
                   },
 
                   {
                     title: "Bathroom",
                     slug:
-                      "/services/interior_painting/bathroom",
+                      "/services/interior-painting/bathroom",
                   },
                    {
                     title: "Balcony",
                     slug:
-                      "/services/interior_painting/balcony",
+                      "/services/interior-painting/balcony",
                   },
                    {
                     title: "Dining Room",
                     slug:
-                      "/services/interior_painting/dining-room",
+                      "/services/interior-painting/dining-room",
                   },
                   {
-                    title: "Bachelor Room",
+                    title: "Men's Bedroom",
                     slug:
-                      "/services/interior_painting/bachelor-room",
+                      "/services/interior-painting/bedroom/bachelor-room/male",
+                  },
+                  {
+                    title: "Women's Bedroom",
+                    slug:
+                      "/services/interior-painting/bedroom/bachelor-room/female",
                   },
                {
-                    title: "Kids Room",
+                    title: "Boy's Room",
                     slug:
-                      "/services/interior_painting/kids-room",
+                      "/services/interior-painting/bedroom/kid's-room/boy",
+                  },
+                  {
+                    title: "Girl's Room",
+                    slug:
+                      "/services/interior-painting/bedroom/kid's-room/girl",
                   },
                   {
                     title: "Master Bedroom",
                     slug:
-                      "/services/interior_painting/master-bedroom",
+                      "/services/interior-painting/bedroom/master-bedroom",
                   },
 
                   {
                     title: "Wall Designs",
                     slug: "/services/wall-designs",
                   },
+
                 ].map((item) => (
                   <Link
                     key={item.title}
@@ -516,7 +528,7 @@ function SearchServiceCard({
           </div>
 
           <Link
-            href={`/services/${service.categorySlug}`}
+            href={getCategoryPath(service.categorySlug)}
             className="neu-button neu-button-primary min-h-11 shrink-0"
           >
             View

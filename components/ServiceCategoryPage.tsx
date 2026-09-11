@@ -16,7 +16,7 @@ type Props = {
   slug: string;
 };
 
-function getCategoryPath(slug: string): string {
+export function getCategoryPath(slug: string): string {
   const category = serviceCategories.find(
     (item) => item.slug === slug
   );
