@@ -413,14 +413,14 @@ export default function SearchClient() {
                       "/services/interior-painting/bedroom/bachelor-room/female",
                   },
                {
-                    title: "Boy's Room",
+                    title: "Boy's Bedroom",
                     slug:
-                      "/services/interior-painting/bedroom/kid's-room/boy",
+                      "/services/interior-painting/bedroom/kids-room/boy",
                   },
                   {
-                    title: "Girl's Room",
+                    title: "Girl's Bedroom",
                     slug:
-                      "/services/interior-painting/bedroom/kid's-room/girl",
+                      "/services/interior-painting/bedroom/kids-room/girl",
                   },
                   {
                     title: "Master Bedroom",
