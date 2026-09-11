@@ -1,43 +1,73 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { defaultSettings, getSettings, type WalloraSettings } from "@/lib/admin";
+import { supabase } from "@/lib/supabase";
+
+type ContactSettings = {
+  phone: string;
+  email: string;
+};
+
+const defaultContactSettings: ContactSettings = {
+  phone: "+880 1XXXXXXXXX",
+  email: "hello@wallora.com",
+};
 
 export default function ContactPage() {
   const [sent, setSent] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  const [settings, setSettings] =
-    useState<WalloraSettings>(defaultSettings);
+  const [settings, setSettings] = useState<ContactSettings>(
+    defaultContactSettings
+  );
 
   useEffect(() => {
-    setMounted(true);
+    let active = true;
 
-    const loadSettings = () => {
-      setSettings(getSettings());
+    const loadSettings = async () => {
+      const { data, error } = await supabase
+        .from("wallora_settings")
+        .select("phone,email")
+        .limit(1)
+        .maybeSingle();
+
+      if (error) {
+        console.error("Contact settings load failed:", error);
+        return;
+      }
+
+      if (active && data) {
+        setSettings({
+          phone: data.phone || defaultContactSettings.phone,
+          email: data.email || defaultContactSettings.email,
+        });
+      }
     };
 
     loadSettings();
 
+    const handleSettingsUpdated = () => {
+      loadSettings();
+    };
+
     window.addEventListener(
       "wallora-settings-updated",
-      loadSettings
+      handleSettingsUpdated
     );
 
-    window.addEventListener("storage", loadSettings);
+    window.addEventListener("focus", loadSettings);
 
     return () => {
+      active = false;
+
       window.removeEventListener(
         "wallora-settings-updated",
-        loadSettings
+        handleSettingsUpdated
       );
 
-      window.removeEventListener("storage", loadSettings);
+      window.removeEventListener("focus", loadSettings);
     };
   }, []);
 
-  function handleSubmit(
-    e: React.FormEvent<HTMLFormElement>
-  ) {
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
 
     setSent(true);
@@ -85,9 +115,7 @@ export default function ContactPage() {
                 </strong>
 
                 <p className="mt-1 break-words">
-                  {mounted
-                    ? settings.phone
-                    : defaultSettings.phone}
+                  {settings.phone}
                 </p>
               </div>
 
@@ -98,9 +126,7 @@ export default function ContactPage() {
                 </strong>
 
                 <p className="mt-1 break-words">
-                  {mounted
-                    ? settings.email
-                    : defaultSettings.email}
+                  {settings.email}
                 </p>
               </div>
 
