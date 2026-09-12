@@ -15,6 +15,10 @@ import {
   ChevronDown,
   ChevronUp,
   Trash2,
+  BadgeCheck,
+  XCircle,
+  Send,
+  MinusCircle,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
@@ -27,33 +31,50 @@ type OrderItem = {
   quantity: number;
 };
 
+type PaymentStatus =
+  | "advance_pending"
+  | "payment_submitted"
+  | "verified"
+  | "rejected"
+  | "not_required";
+
 type Order = {
   id: string;
   items: OrderItem[];
   total: number;
   advance: number;
   dueAfterWork: number;
+
   serviceMode: "fast" | "flexible";
   serviceDate: string;
   preferredFrom: string;
   preferredTo: string;
   assignedServiceDate: string;
+
   customer: {
     name: string;
     phone: string;
     address: string;
     mapsLink: string;
   };
-  paymentStatus: "advance_pending" | "not_required";
+
+  paymentMethod: string;
+  transactionId: string;
+  paymentAmount: number;
+  paymentStatus: PaymentStatus;
+  paidAt: string;
+
   status: "pending" | "confirmed" | "completed";
   createdAt: string;
 };
 
 export default function AdminOrdersClient() {
   const [orders, setOrders] = useState<Order[]>([]);
-  const [expanded, setExpanded] =
-    useState<string | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [updatingPayment, setUpdatingPayment] = useState<string | null>(
+    null
+  );
 
   useEffect(() => {
     loadOrders();
@@ -62,16 +83,10 @@ export default function AdminOrdersClient() {
       loadOrders();
     };
 
-    window.addEventListener(
-      "wallora-orders-updated",
-      refresh
-    );
+    window.addEventListener("wallora-orders-updated", refresh);
 
     return () => {
-      window.removeEventListener(
-        "wallora-orders-updated",
-        refresh
-      );
+      window.removeEventListener("wallora-orders-updated", refresh);
     };
   }, []);
 
@@ -93,6 +108,11 @@ export default function AdminOrdersClient() {
           to_date,
           total,
           advance,
+          payment_method,
+          transaction_id,
+          payment_amount,
+          payment_status,
+          payment_submitted_at,
           status,
           assigned_date,
           created_at,
@@ -110,92 +130,93 @@ export default function AdminOrdersClient() {
         });
 
       if (error) {
-        console.error(
-          "Failed to load orders:",
-          error
-        );
+        console.error("Failed to load orders:", error);
+
         setOrders([]);
         return;
       }
 
-      const mappedOrders: Order[] =
-        (data ?? []).map((order: any) => {
-          const total = Number(order.total) || 0;
-          const advance =
-            Number(order.advance) || 0;
+      const mappedOrders: Order[] = (data ?? []).map((order: any) => {
+        const total = Number(order.total) || 0;
 
-          const items: OrderItem[] =
-            (order.wallora_order_items ?? []).map(
-              (item: any) => ({
-                serviceId: item.service_id,
-                title: item.title,
-                price: Number(item.price) || 0,
-                unit: item.unit,
-                image: item.image || "",
-                quantity:
-                  Number(item.quantity) || 1,
-              })
-            );
+        const advance = Number(order.advance) || 0;
 
-          return {
-            id: order.id,
-            items,
-            total,
-            advance,
-            dueAfterWork: Math.max(
-              0,
-              total - advance
-            ),
-            serviceMode:
-              order.service_mode === "fast"
-                ? "fast"
-                : "flexible",
-            serviceDate:
-              order.service_date || "",
-            preferredFrom:
-              order.from_date || "",
-            preferredTo:
-              order.to_date || "",
-            assignedServiceDate:
-              order.assigned_date || "",
-            customer: {
-              name: order.customer_name,
-              phone: order.phone,
-              address: order.address,
-              mapsLink:
-                order.maps_link || "",
-            },
-            paymentStatus:
-              advance > 0
-                ? "advance_pending"
-                : "not_required",
-            status:
-              order.status === "confirmed"
-                ? "confirmed"
-                : order.status === "completed"
-                  ? "completed"
-                  : "pending",
-            createdAt:
-              order.created_at || "",
-          };
-        });
+        const items: OrderItem[] = (
+          order.wallora_order_items ?? []
+        ).map((item: any) => ({
+          serviceId: item.service_id,
+          title: item.title,
+          price: Number(item.price) || 0,
+          unit: item.unit,
+          image: item.image || "",
+          quantity: Number(item.quantity) || 1,
+        }));
+
+        return {
+          id: order.id,
+
+          items,
+
+          total,
+
+          advance,
+
+          dueAfterWork: Math.max(0, total - advance),
+
+          serviceMode:
+            order.service_mode === "fast" ? "fast" : "flexible",
+
+          serviceDate: order.service_date || "",
+
+          preferredFrom: order.from_date || "",
+
+          preferredTo: order.to_date || "",
+
+          assignedServiceDate: order.assigned_date || "",
+
+          customer: {
+            name: order.customer_name || "",
+            phone: order.phone || "",
+            address: order.address || "",
+            mapsLink: order.maps_link || "",
+          },
+
+          paymentMethod: order.payment_method || "",
+
+          transactionId: order.transaction_id || "",
+
+          paymentAmount: Number(order.payment_amount) || 0,
+
+          paymentStatus:
+            order.payment_status ||
+            (advance > 0
+              ? "advance_pending"
+              : "not_required"),
+
+          paidAt: order.payment_submitted_at || "",
+
+          status:
+            order.status === "confirmed"
+              ? "confirmed"
+              : order.status === "completed"
+                ? "completed"
+                : "pending",
+
+          createdAt: order.created_at || "",
+        };
+      });
 
       setOrders(mappedOrders);
     } catch (error) {
-      console.error(
-        "Failed to load orders:",
-        error
-      );
+      console.error("Failed to load orders:", error);
+
       setOrders([]);
     } finally {
       setLoading(false);
     }
   }
 
-  async function assignDate(
-    id: string,
-    date: string
-  ) {
+  async function assignDate(id: string, date: string) {
     if (!date) return;
 
     const { error } = await supabase
@@ -207,23 +228,16 @@ export default function AdminOrdersClient() {
       .eq("id", id);
 
     if (error) {
-      console.error(
-        "Failed to assign date:",
-        error
-      );
+      console.error("Failed to assign date:", error);
 
-      alert(
-        `Failed to assign date: ${error.message}`
-      );
+      alert(`Failed to assign date: ${error.message}`);
 
       return;
     }
 
     await loadOrders();
 
-    window.dispatchEvent(
-      new Event("wallora-orders-updated")
-    );
+    window.dispatchEvent(new Event("wallora-orders-updated"));
   }
 
   async function updateStatus(
@@ -238,30 +252,67 @@ export default function AdminOrdersClient() {
       .eq("id", id);
 
     if (error) {
-      console.error(
-        "Failed to update order:",
-        error
-      );
+      console.error("Failed to update order:", error);
 
-      alert(
-        `Failed to update order: ${error.message}`
-      );
+      alert(`Failed to update order: ${error.message}`);
 
       return;
     }
 
     await loadOrders();
 
-    window.dispatchEvent(
-      new Event("wallora-orders-updated")
+    window.dispatchEvent(new Event("wallora-orders-updated"));
+  }
+
+  async function updatePaymentStatus(
+    id: string,
+    paymentStatus: PaymentStatus
+  ) {
+    const statusText = getPaymentStatusText(paymentStatus);
+
+    const confirmed = window.confirm(
+      `Change payment status to "${statusText}"?`
     );
+
+    if (!confirmed) return;
+
+    try {
+      setUpdatingPayment(id);
+
+      const { error } = await supabase
+        .from("wallora_orders")
+        .update({
+          payment_status: paymentStatus,
+        })
+        .eq("id", id);
+
+      if (error) {
+        console.error(
+          "Failed to update payment status:",
+          error
+        );
+
+        alert(
+          `Failed to update payment status: ${error.message}`
+        );
+
+        return;
+      }
+
+      await loadOrders();
+
+      window.dispatchEvent(
+        new Event("wallora-orders-updated")
+      );
+    } finally {
+      setUpdatingPayment(null);
+    }
   }
 
   async function deleteOrder(id: string) {
-    const confirmed =
-      window.confirm(
-        "Delete this order permanently?"
-      );
+    const confirmed = window.confirm(
+      "Delete this order permanently?"
+    );
 
     if (!confirmed) return;
 
@@ -271,19 +322,15 @@ export default function AdminOrdersClient() {
       .eq("id", id);
 
     if (error) {
-      console.error(
-        "Failed to delete order:",
-        error
-      );
+      console.error("Failed to delete order:", error);
 
-      alert(
-        `Failed to delete order: ${error.message}`
-      );
+      alert(`Failed to delete order: ${error.message}`);
 
       return;
     }
 
     setExpanded(null);
+
     await loadOrders();
 
     window.dispatchEvent(
@@ -311,35 +358,56 @@ export default function AdminOrdersClient() {
     if (!value) return "";
 
     try {
-      return new Date(value).toLocaleString(
-        "en-BD",
-        {
-          day: "numeric",
-          month: "short",
-          year: "numeric",
-          hour: "numeric",
-          minute: "2-digit",
-        }
-      );
+      return new Date(value).toLocaleString("en-BD", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      });
     } catch {
       return value;
+    }
+  }
+
+  function getPaymentStatusText(
+    status: PaymentStatus
+  ) {
+    switch (status) {
+      case "verified":
+        return "Payment verified";
+
+      case "payment_submitted":
+        return "Payment submitted";
+
+      case "rejected":
+        return "Payment rejected";
+
+      case "advance_pending":
+        return "Advance pending";
+
+      case "not_required":
+        return "No advance required";
+
+      default:
+        return "Advance pending";
     }
   }
 
   const stats = useMemo(() => {
     return {
       total: orders.length,
+
       pending: orders.filter(
-        (order) =>
-          order.status === "pending"
+        (order) => order.status === "pending"
       ).length,
+
       confirmed: orders.filter(
-        (order) =>
-          order.status === "confirmed"
+        (order) => order.status === "confirmed"
       ).length,
+
       completed: orders.filter(
-        (order) =>
-          order.status === "completed"
+        (order) => order.status === "completed"
       ).length,
     };
   }, [orders]);
@@ -443,8 +511,7 @@ export default function AdminOrdersClient() {
       ) : (
         <div className="space-y-5">
           {orders.map((order) => {
-            const isOpen =
-              expanded === order.id;
+            const isOpen = expanded === order.id;
 
             return (
               <div
@@ -456,9 +523,7 @@ export default function AdminOrdersClient() {
                   type="button"
                   onClick={() =>
                     setExpanded(
-                      isOpen
-                        ? null
-                        : order.id
+                      isOpen ? null : order.id
                     )
                   }
                   className="flex w-full flex-col gap-5 p-5 text-left sm:p-7 lg:flex-row lg:items-center lg:justify-between"
@@ -484,6 +549,26 @@ export default function AdminOrdersClient() {
                             ? "Fast Service"
                             : "Flexible Service"}
                         </span>
+
+                        {/* PAYMENT STATUS BADGE */}
+                        <span
+                          className={`rounded-full px-3 py-1 text-[11px] font-extrabold ${
+                            order.paymentStatus ===
+                            "verified"
+                              ? "bg-[#687052] text-[#fffdf5]"
+                              : order.paymentStatus ===
+                                  "rejected"
+                                ? "bg-[#9a9b78] text-[#fffdf5]"
+                                : order.paymentStatus ===
+                                    "payment_submitted"
+                                  ? "bg-[#e1dccd] text-[#687052]"
+                                  : "bg-[#e1dccd] text-[#777868]"
+                          }`}
+                        >
+                          {getPaymentStatusText(
+                            order.paymentStatus
+                          )}
+                        </span>
                       </div>
 
                       <p className="mt-1 text-xs font-semibold text-[#777868]">
@@ -508,13 +593,9 @@ export default function AdminOrdersClient() {
 
                     <div className="flex h-10 w-10 items-center justify-center rounded-xl text-[#687052]">
                       {isOpen ? (
-                        <ChevronUp
-                          size={20}
-                        />
+                        <ChevronUp size={20} />
                       ) : (
-                        <ChevronDown
-                          size={20}
-                        />
+                        <ChevronDown size={20} />
                       )}
                     </div>
                   </div>
@@ -528,9 +609,7 @@ export default function AdminOrdersClient() {
                       <div className="neu-inset rounded-[28px] p-6">
                         <div className="mb-5 flex items-center gap-3">
                           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#687052] text-[#fffdf5]">
-                            <UserRound
-                              size={19}
-                            />
+                            <UserRound size={19} />
                           </div>
 
                           <div>
@@ -539,11 +618,7 @@ export default function AdminOrdersClient() {
                             </p>
 
                             <h3 className="font-display font-extrabold text-[#414637]">
-                              {
-                                order
-                                  .customer
-                                  .name
-                              }
+                              {order.customer.name}
                             </h3>
                           </div>
                         </div>
@@ -552,36 +627,23 @@ export default function AdminOrdersClient() {
                           <InfoRow
                             icon={Phone}
                             label="Phone"
-                            value={
-                              order.customer
-                                .phone
-                            }
+                            value={order.customer.phone}
                           />
 
                           <InfoRow
                             icon={MapPin}
                             label="Address"
-                            value={
-                              order.customer
-                                .address
-                            }
+                            value={order.customer.address}
                           />
 
-                          {order.customer
-                            .mapsLink && (
+                          {order.customer.mapsLink && (
                             <a
-                              href={
-                                order
-                                  .customer
-                                  .mapsLink
-                              }
+                              href={order.customer.mapsLink}
                               target="_blank"
                               rel="noreferrer"
                               className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#687052] px-4 text-sm font-extrabold text-[#fffdf5] transition hover:opacity-90"
                             >
-                              <MapPin
-                                size={16}
-                              />
+                              <MapPin size={16} />
                               Open Google Maps
                             </a>
                           )}
@@ -592,9 +654,7 @@ export default function AdminOrdersClient() {
                       <div className="neu-inset rounded-[28px] p-6">
                         <div className="mb-5 flex items-center gap-3">
                           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#e1dccd] text-[#687052] neu-inset">
-                            <WalletCards
-                              size={19}
-                            />
+                            <WalletCards size={19} />
                           </div>
 
                           <div>
@@ -603,7 +663,7 @@ export default function AdminOrdersClient() {
                             </p>
 
                             <h3 className="font-display font-extrabold text-[#414637]">
-                              Order Summary
+                              Payment Details
                             </h3>
                           </div>
                         </div>
@@ -624,18 +684,194 @@ export default function AdminOrdersClient() {
                             value={`৳${order.dueAfterWork.toLocaleString()}`}
                           />
 
+                          {order.paymentMethod && (
+                            <SummaryRow
+                              label="Payment method"
+                              value={order.paymentMethod}
+                            />
+                          )}
+
+                          {order.transactionId && (
+                            <SummaryRow
+                              label="Transaction ID"
+                              value={order.transactionId}
+                            />
+                          )}
+
+                          {order.paymentAmount > 0 && (
+                            <SummaryRow
+                              label="Paid amount"
+                              value={`৳${order.paymentAmount.toLocaleString()}`}
+                            />
+                          )}
+
+                          {order.paidAt && (
+                            <SummaryRow
+                              label="Payment submitted"
+                              value={formatCreatedAt(
+                                order.paidAt
+                              )}
+                            />
+                          )}
+
                           <div className="soft-divider my-4" />
 
                           <SummaryRow
                             label="Payment status"
-                            value={
-                              order.paymentStatus ===
-                              "advance_pending"
-                                ? "Advance pending"
-                                : "No advance required"
-                            }
+                            value={getPaymentStatusText(
+                              order.paymentStatus
+                            )}
                             highlight
                           />
+
+                          {/* =====================================================
+                              ADMIN PAYMENT STATUS CONTROLS
+                          ====================================================== */}
+                          <div className="mt-5 rounded-[24px] bg-[#e1dccd] p-4">
+                            <div className="flex items-center justify-between gap-3">
+                              <div>
+                                <p className="text-xs font-extrabold uppercase tracking-wide text-[#9a9b78]">
+                                  Admin Control
+                                </p>
+
+                                <p className="mt-1 text-sm font-extrabold text-[#414637]">
+                                  Change Payment Status
+                                </p>
+                              </div>
+
+                              {updatingPayment ===
+                                order.id && (
+                                <div className="h-5 w-5 animate-spin rounded-full border-2 border-[#9a9b78]/30 border-t-[#687052]" />
+                              )}
+                            </div>
+
+                            <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                              {/* PENDING */}
+                              <button
+                                type="button"
+                                disabled={
+                                  updatingPayment ===
+                                  order.id
+                                }
+                                onClick={() =>
+                                  updatePaymentStatus(
+                                    order.id,
+                                    "advance_pending"
+                                  )
+                                }
+                                className={`neu-button-secondary min-h-11 ${
+                                  order.paymentStatus ===
+                                  "advance_pending"
+                                    ? "ring-2 ring-[#687052]/30"
+                                    : ""
+                                }`}
+                              >
+                                <Clock3 size={16} />
+                                Pending
+                              </button>
+
+                              {/* SUBMITTED */}
+                              <button
+                                type="button"
+                                disabled={
+                                  updatingPayment ===
+                                  order.id
+                                }
+                                onClick={() =>
+                                  updatePaymentStatus(
+                                    order.id,
+                                    "payment_submitted"
+                                  )
+                                }
+                                className={`neu-button min-h-11 bg-[#9a9b78] text-[#fffdf5] ${
+                                  order.paymentStatus ===
+                                  "payment_submitted"
+                                    ? "ring-2 ring-[#687052]/40"
+                                    : ""
+                                }`}
+                              >
+                                <Send size={16} />
+                                Submitted
+                              </button>
+
+                              {/* VERIFIED */}
+                              <button
+                                type="button"
+                                disabled={
+                                  updatingPayment ===
+                                  order.id
+                                }
+                                onClick={() =>
+                                  updatePaymentStatus(
+                                    order.id,
+                                    "verified"
+                                  )
+                                }
+                                className={`neu-button-primary min-h-11 ${
+                                  order.paymentStatus ===
+                                  "verified"
+                                    ? "ring-2 ring-[#414637]/30"
+                                    : ""
+                                }`}
+                              >
+                                <BadgeCheck size={16} />
+                                Verified
+                              </button>
+
+                              {/* REJECTED */}
+                              <button
+                                type="button"
+                                disabled={
+                                  updatingPayment ===
+                                  order.id
+                                }
+                                onClick={() =>
+                                  updatePaymentStatus(
+                                    order.id,
+                                    "rejected"
+                                  )
+                                }
+                                className={`neu-button-danger min-h-11 ${
+                                  order.paymentStatus ===
+                                  "rejected"
+                                    ? "ring-2 ring-[#414637]/30"
+                                    : ""
+                                }`}
+                              >
+                                <XCircle size={16} />
+                                Rejected
+                              </button>
+
+                              {/* NOT REQUIRED */}
+                              <button
+                                type="button"
+                                disabled={
+                                  updatingPayment ===
+                                  order.id
+                                }
+                                onClick={() =>
+                                  updatePaymentStatus(
+                                    order.id,
+                                    "not_required"
+                                  )
+                                }
+                                className={`neu-button-secondary min-h-11 sm:col-span-2 ${
+                                  order.paymentStatus ===
+                                  "not_required"
+                                    ? "ring-2 ring-[#687052]/30"
+                                    : ""
+                                }`}
+                              >
+                                <MinusCircle size={16} />
+                                Not Required
+                              </button>
+                            </div>
+
+                            <p className="mt-3 text-[11px] leading-5 text-[#777868]">
+                              Admin can manually change the
+                              payment status at any time.
+                            </p>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -655,19 +891,13 @@ export default function AdminOrdersClient() {
                             >
                               {item.image ? (
                                 <img
-                                  src={
-                                    item.image
-                                  }
-                                  alt={
-                                    item.title
-                                  }
+                                  src={item.image}
+                                  alt={item.title}
                                   className="h-16 w-16 shrink-0 rounded-xl object-cover"
                                 />
                               ) : (
                                 <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-[#e1dccd] text-[#687052]">
-                                  <Package
-                                    size={22}
-                                  />
+                                  <Package size={22} />
                                 </div>
                               )}
 
@@ -677,8 +907,7 @@ export default function AdminOrdersClient() {
                                 </h4>
 
                                 <p className="mt-1 text-xs font-semibold text-[#777868]">
-                                  {item.quantity}{" "}
-                                  × ৳
+                                  {item.quantity} × ৳
                                   {item.price.toLocaleString()}
                                 </p>
                               </div>
@@ -715,8 +944,7 @@ export default function AdminOrdersClient() {
                           "fast" ? (
                             <div className="space-y-1 text-sm text-[#777868]">
                               <p>
-                                Customer
-                                requested:{" "}
+                                Customer requested:{" "}
                                 <strong className="text-[#414637]">
                                   {formatDate(
                                     order.serviceDate
@@ -725,15 +953,14 @@ export default function AdminOrdersClient() {
                               </p>
 
                               <p className="text-xs">
-                                Fast Service ·
-                                50% advance
+                                Fast Service · 50%
+                                advance
                               </p>
                             </div>
                           ) : (
                             <div className="space-y-1 text-sm text-[#777868]">
                               <p>
-                                Preferred
-                                range:{" "}
+                                Preferred range:{" "}
                                 <strong className="text-[#414637]">
                                   {formatDate(
                                     order.preferredFrom
@@ -748,17 +975,15 @@ export default function AdminOrdersClient() {
                               </p>
 
                               <p className="text-xs">
-                                Flexible Service
-                                · No advance
+                                Flexible Service · No
+                                advance
                               </p>
                             </div>
                           )}
 
                           {order.assignedServiceDate && (
                             <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#687052] px-4 py-2 text-xs font-extrabold text-[#fffdf5]">
-                              <CheckCircle2
-                                size={14}
-                              />
+                              <CheckCircle2 size={14} />
                               Assigned:{" "}
                               {formatDate(
                                 order.assignedServiceDate
@@ -788,10 +1013,8 @@ export default function AdminOrdersClient() {
                           />
 
                           <p className="mt-2 text-[11px] text-[#777868]">
-                            Saving a date
-                            automatically
-                            confirms the
-                            order.
+                            Saving a date automatically
+                            confirms the order.
                           </p>
                         </div>
                       </div>
@@ -846,9 +1069,7 @@ export default function AdminOrdersClient() {
                         <button
                           type="button"
                           onClick={() =>
-                            deleteOrder(
-                              order.id
-                            )
+                            deleteOrder(order.id)
                           }
                           className="neu-button-danger min-h-11"
                         >
@@ -911,11 +1132,13 @@ function StatusBadge({
       className:
         "bg-[#e1dccd] text-[#777868]",
     },
+
     confirmed: {
       text: "Confirmed",
       className:
         "bg-[#687052] text-[#fffdf5]",
     },
+
     completed: {
       text: "Completed",
       className:
@@ -981,8 +1204,8 @@ function SummaryRow({
       <span
         className={
           highlight
-            ? "font-extrabold text-[#687052]"
-            : "font-bold text-[#414637]"
+            ? "text-right font-extrabold text-[#687052]"
+            : "text-right font-bold text-[#414637]"
         }
       >
         {value}

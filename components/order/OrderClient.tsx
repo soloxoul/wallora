@@ -20,21 +20,112 @@ import {
   updateCartQuantity,
   type CartItem,
 } from "@/lib/cart";
-
-
+import { supabase } from "@/lib/supabase";
 
 type ServiceMode = "fast" | "flexible";
 
+type CouponSettings = {
+  couponEnabled: boolean;
+  couponCode: string;
+  couponDiscountPercent: number;
+};
+
+const defaultCouponSettings: CouponSettings = {
+  couponEnabled: false,
+  couponCode: "",
+  couponDiscountPercent: 0,
+};
+
 export default function OrderClient() {
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [mode, setMode] = useState<ServiceMode>("fast");
+  const [mode, setMode] =
+    useState<ServiceMode>("fast");
 
   const [serviceDate, setServiceDate] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
 
+  // Coupon
+  const [couponSettings, setCouponSettings] =
+    useState<CouponSettings>(
+      defaultCouponSettings
+    );
+
+  const [couponInput, setCouponInput] =
+    useState("");
+
+  const [appliedCoupon, setAppliedCoupon] =
+    useState(false);
+
+  const [couponMessage, setCouponMessage] =
+    useState("");
+
   useEffect(() => {
     setCart(getCart());
+  }, []);
+
+  // Load coupon settings from Supabase
+  useEffect(() => {
+    async function loadCouponSettings() {
+      const { data, error } = await supabase
+        .from("wallora_settings")
+        .select(
+          "coupon_enabled, coupon_code, coupon_discount_percent"
+        )
+        .limit(1)
+        .maybeSingle();
+
+      if (error) {
+        console.error(
+          "Coupon settings error:",
+          error
+        );
+        return;
+      }
+
+      if (data) {
+        setCouponSettings({
+          couponEnabled:
+            data.coupon_enabled ?? false,
+
+          couponCode:
+            data.coupon_code ?? "",
+
+          couponDiscountPercent:
+            Number(
+              data.coupon_discount_percent ?? 0
+            ),
+        });
+      }
+    }
+
+    loadCouponSettings();
+
+    const handleSettingsUpdated = () => {
+      loadCouponSettings();
+    };
+
+    window.addEventListener(
+      "wallora-settings-updated",
+      handleSettingsUpdated
+    );
+
+    window.addEventListener(
+      "focus",
+      loadCouponSettings
+    );
+
+    return () => {
+      window.removeEventListener(
+        "wallora-settings-updated",
+        handleSettingsUpdated
+      );
+
+      window.removeEventListener(
+        "focus",
+        loadCouponSettings
+      );
+    };
   }, []);
 
   const total = useMemo(
@@ -42,8 +133,29 @@ export default function OrderClient() {
     [cart]
   );
 
-  const advance = mode === "fast" ? total * 0.5 : 0;
-  const dueAfterWork = total - advance;
+  // Coupon discount
+  const discount = appliedCoupon
+    ? Math.round(
+        (total *
+          couponSettings.couponDiscountPercent) /
+          100
+      )
+    : 0;
+
+  // Final amount after coupon
+  const finalTotal = Math.max(
+    0,
+    total - discount
+  );
+
+  // Fast Service = 50% advance
+  const advance =
+    mode === "fast"
+      ? Math.round(finalTotal * 0.5)
+      : 0;
+
+  const dueAfterWork =
+    finalTotal - advance;
 
   const refreshCart = () => {
     setCart(getCart());
@@ -53,13 +165,96 @@ export default function OrderClient() {
     serviceId: string,
     quantity: number
   ) => {
-    updateCartQuantity(serviceId, quantity);
+    updateCartQuantity(
+      serviceId,
+      quantity
+    );
+
     refreshCart();
+
+    // Re-check coupon after cart changes
+    if (appliedCoupon) {
+      setAppliedCoupon(false);
+      setCouponMessage(
+        "Cart changed. Please apply the coupon again."
+      );
+    }
   };
 
-  const removeItem = (serviceId: string) => {
+  const removeItem = (
+    serviceId: string
+  ) => {
     removeFromCart(serviceId);
     refreshCart();
+
+    if (appliedCoupon) {
+      setAppliedCoupon(false);
+      setCouponMessage(
+        "Cart changed. Please apply the coupon again."
+      );
+    }
+  };
+
+  const applyCoupon = () => {
+    setCouponMessage("");
+
+    if (!couponSettings.couponEnabled) {
+      setAppliedCoupon(false);
+      setCouponMessage(
+        "Coupon codes are currently unavailable."
+      );
+      return;
+    }
+
+    const enteredCode =
+      couponInput.trim().toUpperCase();
+
+    if (!enteredCode) {
+      setAppliedCoupon(false);
+      setCouponMessage(
+        "Please enter a coupon code."
+      );
+      return;
+    }
+
+    const validCode =
+      couponSettings.couponCode
+        .trim()
+        .toUpperCase();
+
+    if (
+      !validCode ||
+      enteredCode !== validCode
+    ) {
+      setAppliedCoupon(false);
+      setCouponMessage(
+        "Invalid coupon code."
+      );
+      return;
+    }
+
+    if (
+      couponSettings.couponDiscountPercent <=
+      0
+    ) {
+      setAppliedCoupon(false);
+      setCouponMessage(
+        "This coupon does not have a valid discount."
+      );
+      return;
+    }
+
+    setAppliedCoupon(true);
+
+    setCouponMessage(
+      `${couponSettings.couponDiscountPercent}% discount applied.`
+    );
+  };
+
+  const removeCoupon = () => {
+    setAppliedCoupon(false);
+    setCouponInput("");
+    setCouponMessage("");
   };
 
   if (cart.length === 0) {
@@ -72,8 +267,8 @@ export default function OrderClient() {
             </h1>
 
             <p className="mt-4 text-[var(--muted)]">
-              Choose a Wallora service first, then request it
-              here.
+              Choose a Wallora service first,
+              then request it here.
             </p>
 
             <Link
@@ -105,14 +300,16 @@ export default function OrderClient() {
         </h1>
 
         <p className="mt-3 max-w-2xl text-[var(--muted)]">
-          Choose how you want Wallora to schedule your service.
+          Choose how you want Wallora to
+          schedule your service.
         </p>
       </div>
 
       <div className="grid gap-8 lg:grid-cols-[1.5fr_0.8fr]">
-        {/* Left */}
+        {/* LEFT */}
         <div className="space-y-7">
-          {/* Cart */}
+
+          {/* CART */}
           <div className="neu-surface p-6 md:p-8">
             <h2 className="heading-md mb-6">
               Selected Services
@@ -143,7 +340,8 @@ export default function OrderClient() {
                     <p className="mt-2 font-bold text-[var(--primary)]">
                       ৳
                       {(
-                        item.price * item.quantity
+                        item.price *
+                        item.quantity
                       ).toLocaleString()}
                     </p>
                   </div>
@@ -184,7 +382,9 @@ export default function OrderClient() {
                     <button
                       type="button"
                       onClick={() =>
-                        removeItem(item.serviceId)
+                        removeItem(
+                          item.serviceId
+                        )
                       }
                       className="neu-icon-button"
                       aria-label="Remove service"
@@ -197,18 +397,21 @@ export default function OrderClient() {
             </div>
           </div>
 
-          {/* Service Mode */}
+          {/* SERVICE MODE */}
           <div className="neu-surface p-6 md:p-8">
             <h2 className="heading-md">
               Choose Service Type
             </h2>
 
             <div className="mt-6 grid gap-5 md:grid-cols-2">
-              {/* Fast */}
+
+              {/* FAST */}
               <button
                 type="button"
-                onClick={() => setMode("fast")}
-                className={`text-left rounded-[28px] p-6 transition-all ${
+                onClick={() =>
+                  setMode("fast")
+                }
+                className={`rounded-[28px] p-6 text-left transition-all ${
                   mode === "fast"
                     ? "neu-inset"
                     : "neu-surface-small"
@@ -231,16 +434,18 @@ export default function OrderClient() {
                 </div>
 
                 <p className="mt-4 text-sm leading-6 text-[var(--muted)]">
-                  Pay 50% advance and choose your exact
-                  service date.
+                  Pay 50% advance and choose
+                  your exact service date.
                 </p>
               </button>
 
-              {/* Flexible */}
+              {/* FLEXIBLE */}
               <button
                 type="button"
-                onClick={() => setMode("flexible")}
-                className={`text-left rounded-[28px] p-6 transition-all ${
+                onClick={() =>
+                  setMode("flexible")
+                }
+                className={`rounded-[28px] p-6 text-left transition-all ${
                   mode === "flexible"
                     ? "neu-inset"
                     : "neu-surface-small"
@@ -263,13 +468,14 @@ export default function OrderClient() {
                 </div>
 
                 <p className="mt-4 text-sm leading-6 text-[var(--muted)]">
-                  Choose a preferred date range. Wallora
-                  assigns an available date within that range.
+                  Choose a preferred date range.
+                  Wallora assigns an available
+                  date within that range.
                 </p>
               </button>
             </div>
 
-            {/* Date Selection */}
+            {/* DATE */}
             <div className="mt-7">
               {mode === "fast" ? (
                 <div>
@@ -281,13 +487,16 @@ export default function OrderClient() {
                     type="date"
                     value={serviceDate}
                     onChange={(event) =>
-                      setServiceDate(event.target.value)
+                      setServiceDate(
+                        event.target.value
+                      )
                     }
                     className="neu-input w-full"
                   />
 
                   <p className="mt-2 text-xs text-[var(--muted)]">
-                    Fast Service requires 50% advance payment.
+                    Fast Service requires 50%
+                    advance payment.
                   </p>
                 </div>
               ) : (
@@ -301,7 +510,9 @@ export default function OrderClient() {
                       type="date"
                       value={fromDate}
                       onChange={(event) =>
-                        setFromDate(event.target.value)
+                        setFromDate(
+                          event.target.value
+                        )
                       }
                       className="neu-input w-full"
                     />
@@ -317,15 +528,18 @@ export default function OrderClient() {
                       value={toDate}
                       min={fromDate}
                       onChange={(event) =>
-                        setToDate(event.target.value)
+                        setToDate(
+                          event.target.value
+                        )
                       }
                       className="neu-input w-full"
                     />
                   </div>
 
                   <p className="text-xs text-[var(--muted)] sm:col-span-2">
-                    Wallora will assign the actual service
-                    date based on availability within your
+                    Wallora will assign the
+                    actual service date based
+                    on availability within your
                     selected range.
                   </p>
                 </div>
@@ -334,14 +548,17 @@ export default function OrderClient() {
           </div>
         </div>
 
-        {/* Summary */}
+        {/* SUMMARY */}
         <aside>
           <div className="neu-surface sticky top-28 p-7">
+
             <h2 className="heading-md">
               Order Summary
             </h2>
 
             <div className="mt-6 space-y-4 text-sm">
+
+              {/* SERVICE COUNT */}
               <div className="flex justify-between">
                 <span className="text-[var(--muted)]">
                   Services
@@ -349,7 +566,8 @@ export default function OrderClient() {
 
                 <span className="font-bold">
                   {cart.reduce(
-                    (sum, item) => sum + item.quantity,
+                    (sum, item) =>
+                      sum + item.quantity,
                     0
                   )}
                 </span>
@@ -357,16 +575,117 @@ export default function OrderClient() {
 
               <div className="soft-divider" />
 
+              {/* ORIGINAL TOTAL */}
+              <div className="flex justify-between">
+                <span className="text-[var(--muted)]">
+                  Subtotal
+                </span>
+
+                <span className="font-bold">
+                  ৳{total.toLocaleString()}
+                </span>
+              </div>
+
+              {/* COUPON */}
+              {couponSettings.couponEnabled && (
+                <div className="neu-inset rounded-[20px] p-4">
+
+                  <p className="text-sm font-bold text-[#414637]">
+                    Have a coupon?
+                  </p>
+
+                  {!appliedCoupon ? (
+                    <>
+                      <div className="mt-3 flex gap-2">
+                        <input
+                          value={couponInput}
+                          onChange={(e) => {
+                            setCouponInput(
+                              e.target.value.toUpperCase()
+                            );
+                            setCouponMessage("");
+                          }}
+                          placeholder="Coupon code"
+                          className="neu-input min-w-0 flex-1"
+                        />
+
+                        <button
+                          type="button"
+                          onClick={applyCoupon}
+                          className="neu-button neu-button-primary shrink-0"
+                        >
+                          Apply
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="mt-3 flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-bold text-[var(--primary)]">
+                          {couponSettings.couponCode}
+                        </p>
+
+                        <p className="mt-1 text-xs text-[var(--muted)]">
+                          {
+                            couponSettings.couponDiscountPercent
+                          }
+                          % discount applied
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={
+                          removeCoupon
+                        }
+                        className="text-xs font-bold text-[var(--muted)] underline"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  )}
+
+                  {couponMessage && (
+                    <p
+                      className={`mt-3 text-xs font-semibold ${
+                        appliedCoupon
+                          ? "text-[var(--primary)]"
+                          : "text-red-700"
+                      }`}
+                    >
+                      {couponMessage}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* DISCOUNT */}
+              {appliedCoupon && (
+                <div className="flex justify-between">
+                  <span className="text-[var(--muted)]">
+                    Discount
+                  </span>
+
+                  <span className="font-bold text-[var(--primary)]">
+                    -৳{discount.toLocaleString()}
+                  </span>
+                </div>
+              )}
+
+              <div className="soft-divider" />
+
+              {/* FINAL TOTAL */}
               <div className="flex justify-between">
                 <span className="text-[var(--muted)]">
                   Total
                 </span>
 
                 <span className="font-bold text-lg">
-                  ৳{total.toLocaleString()}
+                  ৳{finalTotal.toLocaleString()}
                 </span>
               </div>
 
+              {/* ADVANCE */}
               <div className="flex justify-between">
                 <span className="text-[var(--muted)]">
                   Advance
@@ -377,6 +696,7 @@ export default function OrderClient() {
                 </span>
               </div>
 
+              {/* DUE */}
               <div className="flex justify-between">
                 <span className="text-[var(--muted)]">
                   After completion
@@ -388,6 +708,7 @@ export default function OrderClient() {
               </div>
             </div>
 
+            {/* INFO */}
             <div className="neu-inset mt-6 rounded-[20px] p-4">
               <div className="flex gap-3">
                 <ShieldCheck
@@ -403,14 +724,20 @@ export default function OrderClient() {
               </div>
             </div>
 
+            {/* CONTINUE */}
             <Link
-              href={`/order/customer?mode=${mode}&total=${total}&advance=${advance}&serviceDate=${serviceDate}&fromDate=${fromDate}&toDate=${toDate}`}
+              href={`/order/customer?mode=${mode}&total=${finalTotal}&originalTotal=${total}&discount=${discount}&couponCode=${encodeURIComponent(
+                appliedCoupon
+                  ? couponSettings.couponCode
+                  : ""
+              )}&advance=${advance}&serviceDate=${serviceDate}&fromDate=${fromDate}&toDate=${toDate}`}
               className="neu-button neu-button-primary mt-7 w-full"
             >
               Continue
               <ArrowRight size={18} />
             </Link>
 
+            {/* CLEAR CART */}
             <button
               type="button"
               onClick={() => {
@@ -421,6 +748,7 @@ export default function OrderClient() {
             >
               Clear Cart
             </button>
+
           </div>
         </aside>
       </div>

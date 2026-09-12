@@ -37,6 +37,13 @@ type Order = {
   to_date: string | null;
   total: number;
   advance: number;
+
+  payment_method: string | null;
+  transaction_id: string | null;
+  payment_amount: number | null;
+  payment_status: string | null;
+  payment_submitted_at: string | null;
+
   status: string;
   assigned_date: string | null;
   created_at: string;
@@ -54,6 +61,18 @@ function formatDate(date: string | null) {
       year: "numeric",
     }
   );
+}
+
+function formatDateTime(date: string | null) {
+  if (!date) return "Not submitted";
+
+  return new Date(date).toLocaleString("en-BD", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
 function normalizeStatus(status: string) {
@@ -94,6 +113,7 @@ function getStatusLabel(status: string) {
   if (normalized === "confirmed") return "Confirmed";
   if (normalized === "assigned") return "Service Assigned";
   if (normalized === "processing") return "In Progress";
+
   if (
     normalized === "completed" ||
     normalized === "complete"
@@ -102,6 +122,54 @@ function getStatusLabel(status: string) {
   }
 
   return status || "Pending";
+}
+
+function getPaymentStatusLabel(status: string | null) {
+  const normalized = normalizeStatus(status || "");
+
+  if (
+    normalized === "verified" ||
+    normalized === "paid"
+  ) {
+    return "Payment Verified";
+  }
+
+  if (
+    normalized === "payment_submitted" ||
+    normalized === "submitted"
+  ) {
+    return "Payment Submitted";
+  }
+
+  if (normalized === "rejected") {
+    return "Payment Rejected";
+  }
+
+  if (
+    normalized === "not_required" ||
+    normalized === "not required"
+  ) {
+    return "No Advance Required";
+  }
+
+  return "Payment Pending";
+}
+
+function getPaymentStatusClass(status: string | null) {
+  const normalized = normalizeStatus(status || "");
+
+  if (
+    normalized === "verified" ||
+    normalized === "paid"
+  ) {
+    return "text-[var(--primary)]";
+  }
+
+  if (normalized === "rejected") {
+    return "text-[var(--dark)]";
+  }
+
+  return "text-[var(--muted)]";
 }
 
 export default function OrderTrackingClient() {
@@ -142,6 +210,11 @@ export default function OrderTrackingClient() {
           to_date,
           total,
           advance,
+          payment_method,
+          transaction_id,
+          payment_amount,
+          payment_status,
+          payment_submitted_at,
           status,
           assigned_date,
           created_at,
@@ -189,6 +262,8 @@ export default function OrderTrackingClient() {
   return (
     <section className="section-padding page-container">
       <div className="mx-auto max-w-5xl">
+
+        {/* Header */}
         <div className="mb-10">
           <Link
             href="/"
@@ -245,6 +320,7 @@ export default function OrderTrackingClient() {
               className="neu-button neu-button-primary min-h-[52px] sm:min-w-[150px]"
             >
               {loading ? "Searching..." : "Track Order"}
+
               {!loading && <Search size={18} />}
             </button>
           </div>
@@ -259,7 +335,8 @@ export default function OrderTrackingClient() {
         {/* Order Result */}
         {order && (
           <div className="mt-8 space-y-7">
-            {/* Header */}
+
+            {/* Order Header */}
             <div className="neu-surface p-6 md:p-8">
               <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
                 <div>
@@ -339,6 +416,8 @@ export default function OrderTrackingClient() {
 
             {/* Customer + Schedule */}
             <div className="grid gap-7 lg:grid-cols-2">
+
+              {/* Customer */}
               <div className="neu-surface p-6 md:p-7">
                 <div className="flex items-center gap-3">
                   <div className="neu-icon-button">
@@ -351,6 +430,7 @@ export default function OrderTrackingClient() {
                 </div>
 
                 <div className="mt-6 space-y-4">
+
                   <div>
                     <p className="text-xs font-semibold text-[var(--muted)]">
                       Name
@@ -395,6 +475,7 @@ export default function OrderTrackingClient() {
                 </div>
               </div>
 
+              {/* Schedule */}
               <div className="neu-surface p-6 md:p-7">
                 <div className="flex items-center gap-3">
                   <div className="neu-icon-button">
@@ -407,6 +488,7 @@ export default function OrderTrackingClient() {
                 </div>
 
                 <div className="mt-6 space-y-4">
+
                   <div>
                     <p className="text-xs font-semibold text-[var(--muted)]">
                       Service Type
@@ -457,9 +539,7 @@ export default function OrderTrackingClient() {
 
                         <p className="mt-1 font-bold">
                           {order.assigned_date
-                            ? formatDate(
-                                order.assigned_date
-                              )
+                            ? formatDate(order.assigned_date)
                             : "Not assigned yet"}
                         </p>
                       </div>
@@ -535,14 +615,19 @@ export default function OrderTrackingClient() {
                 </h2>
               </div>
 
+              {/* Amount Summary */}
               <div className="mt-6 grid gap-4 sm:grid-cols-3">
+
                 <div className="neu-surface-small p-5">
                   <p className="text-xs font-semibold text-[var(--muted)]">
                     Total
                   </p>
 
                   <p className="mt-2 font-display text-xl font-extrabold">
-                    ৳{Number(order.total).toLocaleString()}
+                    ৳
+                    {Number(
+                      order.total
+                    ).toLocaleString()}
                   </p>
                 </div>
 
@@ -574,15 +659,99 @@ export default function OrderTrackingClient() {
                 </div>
               </div>
 
+              {/* Payment Information */}
+              {Number(order.advance) > 0 ? (
+                <div className="mt-6 grid gap-4 md:grid-cols-2">
+
+                  <div className="neu-inset rounded-[18px] p-5">
+                    <p className="text-xs font-semibold text-[var(--muted)]">
+                      Payment Method
+                    </p>
+
+                    <p className="mt-2 font-bold">
+                      {order.payment_method
+                        ? order.payment_method
+                        : "Not submitted"}
+                    </p>
+                  </div>
+
+                  <div className="neu-inset rounded-[18px] p-5">
+                    <p className="text-xs font-semibold text-[var(--muted)]">
+                      Payment Status
+                    </p>
+
+                    <p
+                      className={`mt-2 font-bold ${getPaymentStatusClass(
+                        order.payment_status
+                      )}`}
+                    >
+                      {getPaymentStatusLabel(
+                        order.payment_status
+                      )}
+                    </p>
+                  </div>
+
+                  <div className="neu-inset rounded-[18px] p-5">
+                    <p className="text-xs font-semibold text-[var(--muted)]">
+                      Transaction ID
+                    </p>
+
+                    <p className="mt-2 break-all font-bold">
+                      {order.transaction_id
+                        ? order.transaction_id
+                        : "Not submitted"}
+                    </p>
+                  </div>
+
+                  <div className="neu-inset rounded-[18px] p-5">
+                    <p className="text-xs font-semibold text-[var(--muted)]">
+                      Submitted Amount
+                    </p>
+
+                    <p className="mt-2 font-display text-lg font-extrabold">
+                      {order.payment_amount
+                        ? `৳${Number(
+                            order.payment_amount
+                          ).toLocaleString()}`
+                        : "Not submitted"}
+                    </p>
+                  </div>
+
+                  <div className="neu-inset rounded-[18px] p-5 md:col-span-2">
+                    <p className="text-xs font-semibold text-[var(--muted)]">
+                      Payment Submitted
+                    </p>
+
+                    <p className="mt-2 font-bold">
+                      {formatDateTime(
+                        order.payment_submitted_at
+                      )}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="neu-inset mt-6 rounded-[18px] p-5">
+                  <p className="text-sm font-semibold text-[var(--muted)]">
+                    Payment Status
+                  </p>
+
+                  <p className="mt-2 font-bold text-[var(--primary)]">
+                    No advance payment required
+                  </p>
+                </div>
+              )}
+
+              {/* Payment Notice */}
               <div className="neu-inset mt-5 rounded-[18px] p-4">
-                <p className="text-sm text-[var(--muted)]">
+                <p className="text-sm leading-6 text-[var(--muted)]">
                   {Number(order.advance) > 0
-                    ? "Your advance amount is recorded. The remaining amount is due after service completion."
+                    ? "Your advance payment information is linked to this order. Wallora will verify the transaction before marking the payment as verified."
                     : "No advance payment was required for this service. The full amount is due after service completion."}
                 </p>
               </div>
             </div>
 
+            {/* Order Date */}
             <div className="text-center">
               <p className="text-xs text-[var(--muted)]">
                 Order placed on{" "}
@@ -595,6 +764,7 @@ export default function OrderTrackingClient() {
                 })}
               </p>
             </div>
+
           </div>
         )}
       </div>

@@ -18,13 +18,17 @@ export type HeroSlide = {
 export type WalloraSettings = {
   phone: string;
   email: string;
-
   facebook: string;
   instagram: string;
   linkedin: string;
-
   aboutText: string;
   logo: string;
+
+  paymentQr: string;
+
+  couponEnabled: boolean;
+  couponCode: string;
+  couponDiscountPercent: number;
 
   heroSlides: HeroSlide[];
 };
@@ -83,6 +87,11 @@ export const defaultSettings: WalloraSettings = {
     "Wallora transforms ordinary spaces into beautiful, comfortable and personalized homes through modern painting and wall decoration services.",
 
   logo: "",
+
+    paymentQr: "",
+  couponEnabled: false,
+  couponCode: "",
+  couponDiscountPercent: 0,
 
   heroSlides: defaultHeroSlides,
 };
