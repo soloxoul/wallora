@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import Script from "next/script"; // ✅ import this
 
 export const metadata: Metadata = {
   title: "Wallora | Transform Your Walls",
@@ -17,20 +16,21 @@ export const metadata: Metadata = {
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
     <html lang="en" data-scroll-behavior="smooth">
-      <body>
-        {/* ✅ AdSense Script add here */}
-        <Script
+      <head>
+        {/* ✅ MUST be here for AdSense verification */}
+        <script
           async
           src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5461636835860307"
           crossOrigin="anonymous"
-          strategy="afterInteractive"
-        />
+        ></script>
+      </head>
 
+      <body>
         <Navbar />
         <main>{children}</main>
         <Footer />
